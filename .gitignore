@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Data
+.mp4
+.mkv
+.png
+.jpeg.avi
+source/Python_FoveatedStreamingServerClient/Examples/
