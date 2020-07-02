@@ -45,17 +45,17 @@ class FoveatedStreamingServer:
                    '-s', dimension,
                    '-pix_fmt', 'bgr24',
                    # '-r', '10',
-                   # '-hwaccel', 'd3d11va',
+                   '-hwaccel', 'd3d11va',
                    '-i', '-',
                    '-an',
-                   '-vcodec', 'libx265',
+                   '-vcodec', 'hevc_amf',
                    # '-vcodec', 'libvpx-vp9',
                    '-maxrate', speed_limit,
                    '-bufsize', buf_size,
                    # '-preset', 'slow',
                    '-preset', 'ultrafast',
                    '-tune', 'zerolatency',
-                   '-pix_fmt', 'yuv422p',
+                   '-pix_fmt', 'yuv420p',
                    '-ss', '00:00:00',
                    '-r', '10',
                    '-sdp_file', sdp_file_name,
@@ -113,8 +113,8 @@ class FoveatedStreamingServer:
         sdp_foveated = self.sdp_directory + "video_00_00_00_foveated.sdp"
         sdp_peripheral = self.sdp_directory + "video_00_00_00_peripheral.sdp"
         proc_foveated = self.initialize_ffmpeg('rtp', addr_foveated, dim_foveated, sdp_foveated, '99M', '99M')
-        proc_peripheral = self.initialize_ffmpeg('rtp', addr_peripheral, dim_peripheral, sdp_peripheral, '99M',
-                                                 '99M')
+        proc_peripheral = self.initialize_ffmpeg('rtp', addr_peripheral, dim_peripheral, sdp_peripheral, '128K',
+                                                 '256k')
         self.initialize_cv2()
         i = 0
         while i < rounds:

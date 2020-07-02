@@ -12,6 +12,7 @@ using Emgu.CV.Structure;
 using Emgu.CV.CvEnum;
 using UnityEngine.Timeline;
 using UnityEngine.UI;
+using Boo.Lang;
 
 public class FoveatedStreamReceiver : MonoBehaviour
 {
@@ -39,6 +40,8 @@ public class FoveatedStreamReceiver : MonoBehaviour
     DateTime LastError;
 
     ConcurrentQueue<Action> Queue;
+    private DateTime LatestFrameTime;
+    private List<Thread> ListOfThreads;
     // Start is called before the first frame update
     void Start()
     {
@@ -65,6 +68,9 @@ public class FoveatedStreamReceiver : MonoBehaviour
         StreamThread.Start();
 
         LastError = DateTime.Now;
+
+        ListOfThreads = new List<Thread>();
+        LatestFrameTime = DateTime.Now;
     }
 
 
@@ -87,11 +93,11 @@ public class FoveatedStreamReceiver : MonoBehaviour
 
     private void FoveatedProcess_ErrorDataReceived(object sender, DataReceivedEventArgs e)
     {
-        if (!e.Data.Contains("speed"))
-        {
-            Debug.LogWarning("FFMPEG Info: " + e.Data);
-            LastError = DateTime.Now;
-        }
+        //if (!e.Data.Contains("speed"))
+        //{
+        Debug.LogWarning("FFMPEG Info: " + e.Data);
+        LastError = DateTime.Now;
+        //}
     }
 
     private Process InitializeFFMPEG(string sdpfile)
@@ -100,9 +106,12 @@ public class FoveatedStreamReceiver : MonoBehaviour
         string ffmpeg = "ffmpeg.exe";
 
         string commandLineArgs = " -protocol_whitelist udp,rtp,file,pipe,crypto,data";
+        commandLineArgs += " -hwaccel d3d11va";
         commandLineArgs += " -i " + sdpfile;
         commandLineArgs += " -vcodec rawvideo";
         commandLineArgs += " -pix_fmt bgr24";
+        // commandLineArgs += " -fflags nobuffer";
+        //commandLineArgs += " -flags low_delay";
         commandLineArgs += " -f image2pipe -";
 
         var info = new ProcessStartInfo(ffmpeg, commandLineArgs)
@@ -117,6 +126,7 @@ public class FoveatedStreamReceiver : MonoBehaviour
         return Process.Start(info);
     }
 
+
     public void Stream()
     {
         Console.WriteLine("Started...");
@@ -127,9 +137,9 @@ public class FoveatedStreamReceiver : MonoBehaviour
             byte[] imgPeripheral = ReaderPeripheral.ReadBytes(PeripheralStreamSizeCalced);
             if (imgFoveated.Length > 0 && imgPeripheral.Length > 0)
             {
-                UMat frame = CalculateCompleteFrame(imgPeripheral, imgFoveated);
-                if (frame != null)
-                    Queue.Enqueue(() => ByteToMat(frame));
+                Thread tmp = new Thread(() => StreamThreaded(imgFoveated, imgPeripheral, DateTime.Now));
+                tmp.Start();
+                ListOfThreads.Add(tmp);
             }
             else
             {
@@ -137,6 +147,14 @@ public class FoveatedStreamReceiver : MonoBehaviour
                 Debug.LogError("Peripheral frame has lenght: " + imgPeripheral.Length);
             }
         }
+    }
+
+
+    private void StreamThreaded(byte[] imgFoveated, byte[] imgPeripheral, DateTime time)
+    {
+        UMat frame = CalculateCompleteFrame(imgPeripheral, imgFoveated);
+        if (frame != null)
+            Queue.Enqueue(() => ByteToMat(frame, time));
     }
 
     public string ByteArrayToString(byte[] ba)
@@ -147,15 +165,24 @@ public class FoveatedStreamReceiver : MonoBehaviour
     private void OnDisable()
     {
         Stopped = true;
+
+        foreach (Thread t in ListOfThreads)
+            t.Join();
         FoveatedProcess.Kill();
         PeripheralProcess.Kill();
         StreamThread.Join();
     }
 
-    private void ByteToMat(UMat img)
+    /// <summary>
+    /// Will be called in main render thread, therefore check here if frame time is later than the frame before
+    /// </summary>
+    /// <param name="img"></param>
+    /// <param name="frameTime"></param>
+    private void ByteToMat(UMat img, DateTime frameTime)
     {
-        if (img != null && !img.IsEmpty)
+        if (img != null && !img.IsEmpty && frameTime > LatestFrameTime)
         {
+            LatestFrameTime = frameTime;
             Texture2D tex = new Texture2D(TotalSize.Width, TotalSize.Height, TextureFormat.RGB24, false);
             tex.LoadRawTextureData(img.Bytes);
             tex.Apply();
@@ -259,9 +286,12 @@ public class FoveatedStreamReceiver : MonoBehaviour
 
         UMat result = CalculateMaskedCircle(foveatedArea, correctedCenter, out UMat peripheralMask);
         CvInvoke.BitwiseNot(peripheralMask, peripheralMask);
-        return StackImages(peripheralArea, result, peripheralMask);
-        //return peripheralAreaGreyThresholded;
+        result = StackImages(peripheralArea, result, peripheralMask);
+        CvInvoke.CvtColor(result, result, ColorConversion.Bgr2Rgb);
+        return result;
     }
+
+
     #endregion
 }
 

@@ -1,6 +1,6 @@
 #!/usr/local/bin/python3
 import time
-
+import threading
 import cv2
 import numpy as np
 import subprocess as sp
@@ -27,11 +27,11 @@ class FoveatedStreamingClient:
     def initialize_ffmpeg(self, sdp_file: str) -> sp.Popen:
         command = ['FFMPEG',
                    '-protocol_whitelist', 'udp,rtp,file,pipe,crypto,data',
-                   # '-hwaccel', 'd3d11va',
+                   '-hwaccel', 'd3d11va',
                    '-i', sdp_file,
                    '-vcodec', 'rawvideo',
                    '-pix_fmt', 'bgr24',
-                   # '-fflags', 'nobuffer',
+                   '-fflags', 'nobuffer',
                    '-flags', 'low_delay',
                    '-f', 'image2pipe', '-']
         return sp.Popen(command, stdout=sp.PIPE, bufsize=10 ** 8)
@@ -110,6 +110,16 @@ class FoveatedStreamingClient:
         area = np.frombuffer(area, dtype='uint8').reshape(size[1], size[0], 3)
         return cv2.UMat(area)
 
+    def stream_async(self, frame_peripheral: str, frame_foveated:str):
+        tic = time.perf_counter()
+        frame = self.calc_frame(frame_peripheral, frame_foveated)
+        toc = time.perf_counter()
+        print(f"performed calc in {(toc - tic) * 1000:0.4f} miliseconds")
+        if frame is not None:
+            self.writer.write(frame)
+            cv2.imshow('image', frame)
+
+
     def stream(self):
         self.initialize_cv2()
         sdp_file_peripheral = "VideoSettings/video_00_00_00_peripheral.sdp"
@@ -120,16 +130,10 @@ class FoveatedStreamingClient:
         size_peripheral = self.size_stream_peripheral[0] * self.size_stream_peripheral[1] * 3
         size_foveated = self.size_stream_foveated[0] * self.size_stream_foveated[1] * 3
 
-        skip = False
+        threads = []
         while True:
-            tic = time.perf_counter()
             frame_peripheral = proc_peripheral.stdout.read(size_peripheral)
             frame_foveated = proc_foveated.stdout.read(size_foveated)
-            """ if skip:
-                skip = False
-                continue
-            else:
-                skip = True"""
 
             if frame_foveated == 0 or frame_peripheral == 0 or len(frame_foveated) == 0 or len(
                     frame_peripheral) == 0:
@@ -137,16 +141,18 @@ class FoveatedStreamingClient:
                 print('frame_foveated: ', frame_foveated)
                 print('frame_peripheral: ', frame_peripheral)
                 break
-            frame = self.calc_frame(frame_peripheral, frame_foveated)
-            toc = time.perf_counter()
-            print(f"performed calc in {(toc - tic) * 1000:0.4f} miliseconds")
-            if frame is not None:
-                self.writer.write(frame)
-                cv2.imshow('image', frame)
+
+            x = threading.Thread(target=self.stream_async, args=(frame_peripheral,frame_foveated))
+            x.start()
+            threads.append(x)
 
             k = cv2.waitKey(20) & 0xFF
             if k == ord('q'):
                 break
+
+
+        for thread in threads:
+            thread.join()
 
         cv2.destroyAllWindows()
         self.writer.release()

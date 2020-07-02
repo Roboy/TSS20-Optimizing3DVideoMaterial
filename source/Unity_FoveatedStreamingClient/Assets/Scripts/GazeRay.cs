@@ -63,7 +63,7 @@ public class GazeRay : MonoBehaviour
                 //Vector3 coords = new Vector2(HalfScale.x, HalfScale.z) + scaledHitPoint;
                 Vector3 coords =  Vector3.Scale(hit.transform.InverseTransformPoint(hit.point) - new Vector3(5, 0, -5), new Vector3(-6.4f, 0, 3.6f));
                 coords = Vector3.Scale(coords, new Vector3(PlaneScaling,0,PlaneScaling));
-                Debug.Log(string.Format("Gaze: localHitPoint: {0}, fixedLocalHitPoint: {1}, scaledHitPoint: {2}, coords: {3}", localHitPoint, fixedLocalHitPoint, scaledHitPoint, coords));
+                // Debug.Log(string.Format("Gaze: localHitPoint: {0}, fixedLocalHitPoint: {1}, scaledHitPoint: {2}, coords: {3}", localHitPoint, fixedLocalHitPoint, scaledHitPoint, coords));
                 Text.text = string.Format("Gaze: \n X: {0} Y: {1} Z: {2}", Mathf.Round(coords.x), Mathf.Round(coords.y), Mathf.Round(coords.z));
                 Server.SendGaze(coords.x, coords.z);
 
