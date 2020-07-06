@@ -6,9 +6,9 @@ import numpy as np
 
 class FoveatedImage_SP:
 
-    def __init__(self, size: tuple, radius: int = 150, scale_peripheral: float = 0.3):
+    def __init__(self, size: tuple, radius: int = 150, size_peripheral: tuple = (680, 360)):
         self.scale_percent_outer_foveal = 0.5
-        self.scale_percent_peripheral = scale_peripheral
+        self.size_peripheral = size_peripheral
         self.radius = radius
         self.size = size
 
@@ -17,8 +17,8 @@ class FoveatedImage_SP:
         cv2.waitKey(0)
         cv2.destroyWindow('image')
 
-    def calculate_to_lower(self, img: cv2.UMat, scale_percent: float, blur: float = 15) -> cv2.UMat:
-        # img = cv2.resize(img, None, fx=scale_percent, fy=scale_percent, interpolation=cv2.INTER_NEAREST)
+    def calculate_to_lower(self, img: cv2.UMat, size: tuple, blur: float = 15) -> cv2.UMat:
+        # img = cv2.resize(img, size, interpolation=cv2.INTER_NEAREST)
         # img = cv2.resize(img, (2560, 1440), interpolation=cv2.INTER_NEAREST)
         # return img
         return cv2.GaussianBlur(img, (blur, blur), 0)
@@ -61,7 +61,7 @@ class FoveatedImage_SP:
 
     def get_masked_peripheral(self, image: cv2.UMat, mask: np.array) -> cv2.UMat:
         peripheral = cv2.bitwise_and(image, image, mask=mask)
-        peripheral = cv2.resize(peripheral, None, fx=self.scale_percent_peripheral, fy=self.scale_percent_peripheral)
+        peripheral = cv2.resize(peripheral, self.size_peripheral)
         return peripheral
 
     def get_foveated_image(self, image: cv2.UMat, coords: tuple) -> cv2.UMat:
@@ -70,7 +70,7 @@ class FoveatedImage_SP:
         fov_outer_pic = self.calculate_to_lower(image, self.scale_percent_outer_foveal, 15)
         fov_outer_pic, fov_outer_mask = self.calculate_masked_circle(fov_outer_pic, coords, r_outer)
         fov_inner, mask_inner = self.calculate_masked_circle(image, coords, r_inner)
-        peripheral = self.calculate_to_lower(image, self.scale_percent_peripheral, 55)
+        peripheral = self.calculate_to_lower(image, self.size_peripheral, 55)
         img_result = self.stack_images(fov_outer_pic, fov_inner, cv2.bitwise_not(mask_inner))
         return self.stack_images(peripheral, img_result, cv2.bitwise_not(fov_outer_mask))
 

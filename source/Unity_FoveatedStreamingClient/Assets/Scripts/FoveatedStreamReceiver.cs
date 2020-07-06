@@ -1,18 +1,16 @@
 ﻿using UnityEngine;
+using UnityEngine.UI;
 using System.Diagnostics;
 using System.IO;
 using System;
-using Debug = UnityEngine.Debug;
 using System.Threading;
 using System.Collections.Concurrent;
-using System.Linq;
-using Emgu.CV;
 using System.Drawing;
+using Emgu.CV;
 using Emgu.CV.Structure;
 using Emgu.CV.CvEnum;
-using UnityEngine.Timeline;
-using UnityEngine.UI;
 using Boo.Lang;
+using Debug = UnityEngine.Debug;
 
 public class FoveatedStreamReceiver : MonoBehaviour
 {
@@ -106,12 +104,12 @@ public class FoveatedStreamReceiver : MonoBehaviour
         string ffmpeg = "ffmpeg.exe";
 
         string commandLineArgs = " -protocol_whitelist udp,rtp,file,pipe,crypto,data";
-        commandLineArgs += " -hwaccel d3d11va";
+        commandLineArgs += " -hwaccel dxva2";
         commandLineArgs += " -i " + sdpfile;
         commandLineArgs += " -vcodec rawvideo";
         commandLineArgs += " -pix_fmt bgr24";
-        // commandLineArgs += " -fflags nobuffer";
-        //commandLineArgs += " -flags low_delay";
+        commandLineArgs += " -fflags nobuffer";
+        commandLineArgs += " -flags low_delay";
         commandLineArgs += " -f image2pipe -";
 
         var info = new ProcessStartInfo(ffmpeg, commandLineArgs)
@@ -126,20 +124,35 @@ public class FoveatedStreamReceiver : MonoBehaviour
         return Process.Start(info);
     }
 
+    struct ThreadInfo
+    {
+        public byte[] imgPeripheral;
+        public byte[] imgFoveated;
+        public DateTime time;
+
+        public ThreadInfo(byte[] foveated, byte[] peripheral, DateTime time)
+        {
+            this.imgFoveated = foveated;
+            this.imgPeripheral = peripheral;
+            this.time = time;
+        }
+    }
+
 
     public void Stream()
     {
-        Console.WriteLine("Started...");
+
+        Debug.Log("Started...");
         while (!Stopped)
         {
-
             byte[] imgFoveated = ReaderFoveated.ReadBytes(FoveatedStreamSizeCalced);
             byte[] imgPeripheral = ReaderPeripheral.ReadBytes(PeripheralStreamSizeCalced);
             if (imgFoveated.Length > 0 && imgPeripheral.Length > 0)
             {
-                Thread tmp = new Thread(() => StreamThreaded(imgFoveated, imgPeripheral, DateTime.Now));
-                tmp.Start();
-                ListOfThreads.Add(tmp);
+                ThreadPool.QueueUserWorkItem(StreamThreaded, new ThreadInfo(imgFoveated, imgPeripheral, DateTime.Now));
+                //Thread tmp = new Thread(() => StreamThreaded(imgFoveated, imgPeripheral, DateTime.Now));
+                //tmp.Start();
+                //ListOfThreads.Add(tmp);
             }
             else
             {
@@ -150,11 +163,16 @@ public class FoveatedStreamReceiver : MonoBehaviour
     }
 
 
-    private void StreamThreaded(byte[] imgFoveated, byte[] imgPeripheral, DateTime time)
+    // private void StreamThreaded(byte[] imgFoveated, byte[] imgPeripheral, DateTime time)
+    private void StreamThreaded(object state)
     {
-        UMat frame = CalculateCompleteFrame(imgPeripheral, imgFoveated);
+        DateTime starttime = DateTime.Now;
+        ThreadInfo info = (ThreadInfo)state;
+        UMat frame = CalculateCompleteFrame(info.imgPeripheral, info.imgFoveated);
+        TimeSpan timeneeded = DateTime.Now - starttime;
+        Debug.Log("Time needed: " + timeneeded);
         if (frame != null)
-            Queue.Enqueue(() => ByteToMat(frame, time));
+            Queue.Enqueue(() => ByteToMat(frame, info.time));
     }
 
     public string ByteArrayToString(byte[] ba)
@@ -182,6 +200,7 @@ public class FoveatedStreamReceiver : MonoBehaviour
     {
         if (img != null && !img.IsEmpty && frameTime > LatestFrameTime)
         {
+            Debug.Log("Test");
             LatestFrameTime = frameTime;
             Texture2D tex = new Texture2D(TotalSize.Width, TotalSize.Height, TextureFormat.RGB24, false);
             tex.LoadRawTextureData(img.Bytes);
@@ -268,7 +287,7 @@ public class FoveatedStreamReceiver : MonoBehaviour
         CvInvoke.CvtColor(peripheralArea, peripheralAreaGrey, ColorConversion.Bgr2Gray);
         UMat peripheralAreaGreyThresholded = new UMat(TotalSize, DepthType.Cv8S, 0);
         CvInvoke.Threshold(peripheralAreaGrey, peripheralAreaGreyThresholded, 10, 255, ThresholdType.Binary);
-        CircleF[] circles = CvInvoke.HoughCircles(peripheralAreaGreyThresholded, HoughModes.Gradient, 1, 1000, 300, 10, BoundaryDetectionCircle.Width, BoundaryDetectionCircle.Height);
+        CircleF[] circles = CvInvoke.HoughCircles(peripheralAreaGreyThresholded, HoughModes.Standard, 1, 1000, 300, 10, BoundaryDetectionCircle.Width, BoundaryDetectionCircle.Height);
 
         if (circles.Length > 1)
         {
