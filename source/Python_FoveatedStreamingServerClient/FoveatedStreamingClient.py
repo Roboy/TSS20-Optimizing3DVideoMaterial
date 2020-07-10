@@ -29,7 +29,7 @@ class FoveatedStreamingClient:
         cv2.namedWindow('image')
         cv2.resizeWindow('image', self.size_total[0], self.size_total[1])
         fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-        self.writer = cv2.VideoWriter("Examples/output_low_res.avi", fourcc, 10, self.size_total)
+        self.writer = cv2.VideoWriter("Examples/output_low_res_peripheral.avi", fourcc, 10, self.size_stream_peripheral)
 
     def initialize_ffmpeg(self, sdp_file: str) -> sp.Popen:
         command = ['FFMPEG',
@@ -83,7 +83,7 @@ class FoveatedStreamingClient:
 
     def calc_frame(self, peripheral: str, foveated: str):
         peripheral_area: cv2.UMat = self.extract_area(peripheral, self.size_stream_peripheral)
-        res_1_0 = np.where((peripheral_area[0, 0:, 0] == 5) & (peripheral_area[0, 0:, 1] == 5))
+        """res_1_0 = np.where((peripheral_area[0, 0:, 0] == 5) & (peripheral_area[0, 0:, 1] == 5))
         res_1_1 = np.where((peripheral_area[1, 0:, 0] == 5) & (peripheral_area[1, 0:, 1] == 5))
         res_1_2 = np.where((peripheral_area[2, 0:, 0] == 5) & (peripheral_area[2, 0:, 1] == 5))
         res_1_3 = np.where((peripheral_area[3, 0:, 0] == 5) & (peripheral_area[3, 0:, 1] == 5))
@@ -98,12 +98,13 @@ class FoveatedStreamingClient:
         print('4: ', peripheral_area[4, res_2_4, :])
         print('5: ', peripheral_area[5, res_2_5, :])
         print('6: ', peripheral_area[6, res_2_6, :])
-        print('7: ', peripheral_area[7, res_2_7, :])
-        peripheral_area = cv2.UMat(peripheral_area[8:368, :, :])
+        print('7: ', peripheral_area[7, res_2_7, :])"""
+        peripheral_area = cv2.UMat(peripheral_area)
+        self.writer.write(peripheral_area)
         peripheral_area = cv2.resize(peripheral_area, self.size_total)
         foveated_area: cv2.UMat = self.extract_area(foveated, self.size_stream_foveated)
         foveated_area = cv2.UMat(foveated_area)
-        """peripheral_area_grey: cv2.UMat = cv2.cvtColor(peripheral_area, cv2.COLOR_BGR2GRAY)
+        peripheral_area_grey: cv2.UMat = cv2.cvtColor(peripheral_area, cv2.COLOR_BGR2GRAY)
         peripheral_area_grey = cv2.medianBlur(peripheral_area_grey, 5)
         th: int = 0
         threshed: cv2.Umat
@@ -120,7 +121,7 @@ class FoveatedStreamingClient:
                 img, mask = self.calculate_masked_circle(foveated_area, (a, b))
                 return self.stack_images(peripheral_area, img, cv2.bitwise_not(mask))
         except:
-            traceback.print_exc(file=sys.stderr)"""
+            traceback.print_exc(file=sys.stderr)
 
         a, b, r = 1280, 720, 128
         img, mask = self.calculate_masked_circle(foveated_area, (a, b))
@@ -150,7 +151,7 @@ class FoveatedStreamingClient:
         if frame is not None:
             return frame
 
-        # self.writer.write(frame)
+
         # cv2.imshow('image', frame)
 
     def read_error(self, proc_peripheral: sp.Popen, proc_foveated: sp.Popen):
@@ -187,8 +188,8 @@ class FoveatedStreamingClient:
     def stream(self):
         self.initialize_cv2()
 
-        sdp_file_peripheral = "VideoSettings/video_00_00_00_peripheral.sdp"
-        sdp_file_foveated = "VideoSettings/video_00_00_00_foveated.sdp"
+        sdp_file_peripheral = "VideoSettings/video_00_00_00_peripheral_test.sdp"
+        sdp_file_foveated = "VideoSettings/video_00_00_00_foveated_test.sdp"
         proc_peripheral = self.initialize_ffmpeg(sdp_file_peripheral)
         proc_foveated = self.initialize_ffmpeg(sdp_file_foveated)
 
@@ -245,5 +246,5 @@ class FoveatedStreamingClient:
 
 
 if __name__ == '__main__':
-    client = FoveatedStreamingClient(256, (2560, 1440), (512, 512), (640, 368))
+    client = FoveatedStreamingClient(256, (2560, 1440), (512, 512), (640, 360))
     client.stream()

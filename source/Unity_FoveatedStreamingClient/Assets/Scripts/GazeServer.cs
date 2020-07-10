@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Net.Sockets;
-
 using System;
 using System.Text;
 
@@ -10,8 +9,9 @@ public class GazeServer : MonoBehaviour
 {
     public string IP = "127.0.0.1";
     public int Port = 8888;
-    
+
     UdpClient Server;
+    bool Stopped = false;
 
     // Start is called before the first frame update
     void Start()
@@ -27,17 +27,25 @@ public class GazeServer : MonoBehaviour
 
     public void SendGaze(float x, float y)
     {
-        GazeCoordinates gaze = new GazeCoordinates((int)x, (int)y);
-        string json = JsonUtility.ToJson(gaze);
-        try
+        if (!Stopped)
         {
-            byte[] msg = Encoding.ASCII.GetBytes(json);
-            Server.Send(msg, msg.Length, IP, Port);
+            GazeCoordinates gaze = new GazeCoordinates((int)x, (int)y);
+            string json = JsonUtility.ToJson(gaze);
+            try
+            {
+                byte[] msg = Encoding.ASCII.GetBytes(json);
+                Server.Send(msg, msg.Length, IP, Port);
+            }
+            catch (Exception e)
+            {
+                Debug.Log("Exception: " + e.Message);
+            }
         }
-        catch (Exception e)
-        {
-            Debug.Log("Exception: " + e.Message);
-        }
+    }
+
+    private void OnApplicationQuit()
+    {
+        Stopped = true;
     }
 
     [Serializable]

@@ -1,16 +1,24 @@
 #!/usr/local/bin/python3
-import subprocess as sp
 import time
+import threading
 import cv2
+import numpy as np
+import subprocess as sp
+import traceback
+import sys
+import concurrent.futures
+import queue
+from bcolors import bcolors
 from FoveatedImage_SP import FoveatedImage_SP
 from GazeClient import GazeClient
-import numpy as np
+from GazeFrameServer import GazeFrameServer
+from bcolors import bcolors
 
 
 class FoveatedStreamingServer:
 
     def __init__(self, input_file: str, sdf_directory: str,
-                 size: tuple = (480, 240, 3), size_peripheral: tuple = (680, 360), radius_foveated: int = 150,
+                 size: tuple = (480, 240, 3), size_peripheral: tuple = (640, 360), radius_foveated: int = 150,
                  show_window: bool = False):
 
         self.ix, self.iy = 1280, 720
@@ -26,6 +34,11 @@ class FoveatedStreamingServer:
         self.client = GazeClient()
         self.client.start_receiving()
         self.client.on_update += self.new_gaze
+        self.server = GazeFrameServer()
+        self.frame_counter = 0
+        self.threads = []
+        self.initialzed = False
+        self.stopped = False
 
     # mouse callback function
     def draw_circle(self, event, x, y, flags, param):
@@ -36,6 +49,11 @@ class FoveatedStreamingServer:
         self.ix = self.client.msg['X']
         self.iy = self.client.msg['Y']
         print('received: ', self.client.msg)
+
+        if not self.initialzed:
+            print("Resetting Framecount to 0")
+            self.frame_counter = 0
+            self.initialzed = True
 
     def initialize_ffmpeg(self, streaming_format: str, output_adress: str, dimension: str, sdp_file_name: str,
                           speed_limit: str, buf_size: str):
@@ -58,13 +76,13 @@ class FoveatedStreamingServer:
                    # '-preset', 'slow',
                    '-preset', 'ultrafast',
                    '-tune', 'zerolatency',
-                   '-pix_fmt', 'yuv422p',
+                   '-pix_fmt', 'nv12',
                    '-ss', '00:00:00',
                    '-r', '30',
                    '-sdp_file', sdp_file_name,
                    '-f', streaming_format, output_adress]
 
-        return sp.Popen(command, stdin=sp.PIPE)
+        return sp.Popen(command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
 
     def initialize_cv2(self):
         if self.show_window:
@@ -77,11 +95,27 @@ class FoveatedStreamingServer:
         self.foveated_rendering = FoveatedImage_SP(size=self.size[0:2], size_peripheral=self.size_peripheral,
                                                    radius=self.radius)
 
+    def read_error(self, proc: sp.Popen, type: str):
+        try:
+            while proc.stderr.readable() and not self.stopped:
+                print(f"{bcolors.FAIL}", type, ": ", proc.stderr.readline(), f"{bcolors.ENDC}")
+            print('finished errors')
+        except SystemExit:
+            pass
+
+    def read_stdout(self, proc: sp.Popen, type: str):
+        try:
+            while proc.stderr.readable() and not self.stopped:
+                print(f"{bcolors.WARNING}", type, ": ", proc.stdout.readline(), f"{bcolors.ENDC}")
+            print('finished stdout')
+        except SystemExit:
+            pass
+
     def reload_video(self):
         self.cap = cv2.VideoCapture(self.input_file)
 
     def coords_imgarray(self, coords: tuple):
-        arr = np.full((8, 640, 3), 255, np.uint)
+        arr = np.full((8, 680, 3), 255, np.uint)
         split_X_num = coords[0] // 255
         split_X_mod = coords[0] % 255
         split_Y_num = coords[1] // 255
@@ -110,6 +144,8 @@ class FoveatedStreamingServer:
                 peripheral_cpu[0:8, :, :] = coords
                 # peripheral_cpu = peripheral_cpu
                 cv2.imshow('test', peripheral_cpu)"""
+                self.frame_counter += 1
+                self.server.send_gaze(self.ix, self.iy, self.frame_counter)
                 process_foveated.stdin.write(foveated.get().tostring())
                 process_peripheral.stdin.write(peripheral_cpu.tostring())
 
@@ -133,6 +169,7 @@ class FoveatedStreamingServer:
                 print(self.ix, self.iy)
 
     def stream_loops(self, addr_foveated: str, addr_peripheral: str, rounds: int = 10):
+
         dim_foveated = '{}x{}'.format(int(self.radius * 2), int(self.radius * 2))
         dim_peripheral = '{}x{}'.format(int(self.size_peripheral[0]), int(self.size_peripheral[1]))
         sdp_foveated = self.sdp_directory + "video_00_00_00_foveated.sdp"
@@ -141,6 +178,23 @@ class FoveatedStreamingServer:
         proc_peripheral = self.initialize_ffmpeg('rtp', addr_peripheral, dim_peripheral, sdp_peripheral, '99M',
                                                  '99M')
         self.initialize_cv2()
+
+        read_error_peripheral = threading.Thread(target=self.read_error, args=(proc_peripheral, "Peripheral"))
+        read_error_peripheral.start()
+        self.threads.append(read_error_peripheral)
+
+        read_stdout_peripheral = threading.Thread(target=self.read_stdout, args=(proc_peripheral, "Peripheral"))
+        read_stdout_peripheral.start()
+        self.threads.append(read_stdout_peripheral)
+
+        read_error_foveated = threading.Thread(target=self.read_error, args=(proc_foveated, "Foveated"))
+        read_error_foveated.start()
+        self.threads.append(read_error_foveated)
+
+        read_stdout_foveated = threading.Thread(target=self.read_stdout, args=(proc_foveated, "Foveated"))
+        read_stdout_foveated.start()
+        self.threads.append(read_stdout_foveated)
+
         i = 0
         while i < rounds:
             i += 1
@@ -151,6 +205,7 @@ class FoveatedStreamingServer:
             if k == ord('q'):
                 break
 
+        self.stopped = True
         self.cap.release()
         cv2.destroyAllWindows()
         proc_foveated.stdin.close()
@@ -158,6 +213,9 @@ class FoveatedStreamingServer:
         proc_peripheral.stdin.close()
         proc_peripheral.wait()
         self.client.stop_receiving()
+
+        for thread in self.threads:
+            thread.join()
 
 
 if __name__ == '__main__':

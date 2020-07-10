@@ -61,7 +61,7 @@ def set_threshold(newVal):
 
 
 cv2.namedWindow('image')
-cv2.resizeWindow('image', 1270, 720)
+cv2.resizeWindow('image', 1280, 1000)
 cv2.createTrackbar('param1', 'image', param1, 500, set_param_1)
 cv2.createTrackbar('param2', 'image', param2, 500, set_param_2)
 cv2.createTrackbar('minDist', 'image', minDist, 500, set_minDist)
@@ -69,14 +69,14 @@ cv2.createTrackbar('circles', 'image', circles, 100, set_circles)
 cv2.createTrackbar('minRad', 'image', minRad, 300, set_minRad)
 cv2.createTrackbar('maxRad', 'image', maxRad, 300, set_maxRad)
 cv2.createTrackbar('d', 'image', threshold, 300, set_threshold)
-filename = "Examples/output_test_00_00_00.avi"
+filename = "Examples/output_low_res_peripheral.avi"
 cap = cv2.VideoCapture(filename)
 
 while cap.isOpened():
     ret, frame = cap.read()
     if ret is True:
         frame_UMat = cv2.UMat(frame)
-        frame_UMat = cv2.resize(frame_UMat, (2560, 1440))
+        frame_UMat = cv2.resize(frame_UMat, (320, 180))
         frame_UMat_grey = cv2.cvtColor(frame_UMat, cv2.COLOR_BGR2GRAY)
         th, threshed = cv2.threshold(frame_UMat_grey, threshold, 255, cv2.THRESH_BINARY)
         cv2.imshow('test', threshed)

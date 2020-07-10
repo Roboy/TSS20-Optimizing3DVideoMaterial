@@ -9,17 +9,20 @@ using System.Drawing;
 using Emgu.CV;
 using Emgu.CV.Structure;
 using Emgu.CV.CvEnum;
-using Boo.Lang;
 using Debug = UnityEngine.Debug;
+using System.Collections.Generic;
 
 public class FoveatedStreamReceiver : MonoBehaviour
 {
-    public string FoveatedSDPFile = "video_00_00_00_foveated";
-    public string PeripheralSDPFile = "video_00_00_00_peripheral";
+    public string FoveatedSDPFile = "video_00_00_00_foveated.sdp";
+    public string PeripheralSDPFile = "video_00_00_00_peripheral.sdp";
 
 
     public TMPro.TextMeshProUGUI TextPrinter;
+    public TMPro.TextMeshProUGUI LoadingText;
     public MeshRenderer VideoPlane;
+
+    public GazeFrameClient Client;
 
     public Size FoveatedStreamSize = new Size(512, 512);
     public Size PeripheralStreamSize = new Size(640, 360);
@@ -35,21 +38,26 @@ public class FoveatedStreamReceiver : MonoBehaviour
     private BinaryReader ReaderPeripheral;
     private Thread StreamThread;
     private bool Stopped = false;
-    DateTime LastError;
+    private int FrameCounter = 0;
+    private bool Initialized = false;
 
     ConcurrentQueue<Action> Queue;
     private DateTime LatestFrameTime;
     private List<Thread> ListOfThreads;
+    private Dictionary<int, Point> ReceivedFrameGaze;
+    private DateTime LastFrameSync;
+    private int FrameCountWhenSync = 0;
     // Start is called before the first frame update
     void Start()
     {
         Queue = new ConcurrentQueue<Action>();
         FoveatedStreamSizeCalced = (FoveatedStreamSize.Width * FoveatedStreamSize.Height * 3);
         PeripheralStreamSizeCalced = (PeripheralStreamSize.Width * PeripheralStreamSize.Height * 3);
-        BoundaryDetectionCircle = new Size(Radius / 2 - 20, Radius / 2 + 20);
+        //BoundaryDetectionCircle = new Size(Radius / 2 - 20, Radius / 2 + 20);
+        BoundaryDetectionCircle = new Size(30, 42);
 
-        string foveatedfullsdp = Application.streamingAssetsPath + "/" + FoveatedSDPFile;
-        string peripheraldfullsdp = Application.streamingAssetsPath + "/" + PeripheralSDPFile;
+        string foveatedfullsdp = "C:/Users/P-Hag/Documents/MasterThesis/SS20-Optimizing3DVideoMaterial/source/Python_FoveatedStreamingServerClient/VideoSettings/" + FoveatedSDPFile;
+        string peripheraldfullsdp = "C:/Users/P-Hag/Documents/MasterThesis/SS20-Optimizing3DVideoMaterial/source/Python_FoveatedStreamingServerClient/VideoSettings/" + PeripheralSDPFile;
         Debug.Log(foveatedfullsdp);
 
         FoveatedProcess = InitializeFFMPEG(foveatedfullsdp);
@@ -59,22 +67,47 @@ public class FoveatedStreamReceiver : MonoBehaviour
         FoveatedProcess.BeginErrorReadLine();
         ReaderFoveated = new BinaryReader(FoveatedProcess.StandardOutput.BaseStream);
 
-        PeripheralProcess.ErrorDataReceived += new DataReceivedEventHandler(FoveatedProcess_ErrorDataReceived);
+        PeripheralProcess.ErrorDataReceived += new DataReceivedEventHandler(PeripheralProcess_ErrorDataReceived);
         PeripheralProcess.BeginErrorReadLine();
         ReaderPeripheral = new BinaryReader(PeripheralProcess.StandardOutput.BaseStream);
         StreamThread = new Thread(new ThreadStart(Stream));
         StreamThread.Start();
 
-        LastError = DateTime.Now;
+        Client.ReceivedGazeFrameEvent += Client_ReceivedGazeFrameEvent;
 
         ListOfThreads = new List<Thread>();
+        ReceivedFrameGaze = new Dictionary<int, Point>();
         LatestFrameTime = DateTime.Now;
+
+        ListOfThreads.Add(StreamThread);
+
+        ThreadPool.SetMaxThreads(600, 200);
+    }
+
+    private void Client_ReceivedGazeFrameEvent(GazeFrameClient.GazeFrameCoordinates gfc)
+    {
+        Debug.Log("Received GazeFrame: " + gfc.Frame + " with coords: (" + gfc.X + "," + gfc.Y + ") at: " + gfc.Time + " delay is: " + (DateTime.Now - gfc.ServerTime).TotalMilliseconds);
+        if (!Initialized)
+        {
+            FrameCounter = gfc.Frame - 1;
+            LastFrameSync = DateTime.Now;
+            FrameCountWhenSync = FrameCounter;
+            Initialized = true;
+        }
+        else if (gfc.ServerTime - LastFrameSync > TimeSpan.FromSeconds(1))
+        {
+            int framespassed = FrameCounter - FrameCountWhenSync;
+            //Debug.Log("Differenc received: " + (FrameCounter - gfc.Frame) + " frames passed: " + framespassed);
+        }
+
+        ReceivedFrameGaze.Add(gfc.Frame, new Point(gfc.X, gfc.Y));
+
     }
 
 
 
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
 
         if (Queue.TryDequeue(out Action result))
@@ -82,20 +115,23 @@ public class FoveatedStreamReceiver : MonoBehaviour
             result.Invoke();
         }
 
-        //if (LastError - DateTime.Now < TimeSpan.FromSeconds(1))
-        //    TextPrinter.text = "Loading stream...";
-        //else
-        //    TextPrinter.enabled = false;
+        if (!Initialized)
+        {
+            LoadingText.text = "Loading stream...";
+            LoadingText.enabled = true;
+        }
+        else
+            LoadingText.enabled = false;
     }
 
+    private void PeripheralProcess_ErrorDataReceived(object sender, DataReceivedEventArgs e)
+    {
+        Debug.LogWarning("Peripheral Info: " + e.Data);
+    }
 
     private void FoveatedProcess_ErrorDataReceived(object sender, DataReceivedEventArgs e)
     {
-        //if (!e.Data.Contains("speed"))
-        //{
-        Debug.LogWarning("FFMPEG Info: " + e.Data);
-        LastError = DateTime.Now;
-        //}
+        Debug.LogWarning("Foveated Info: " + e.Data);
     }
 
     private Process InitializeFFMPEG(string sdpfile)
@@ -129,12 +165,14 @@ public class FoveatedStreamReceiver : MonoBehaviour
         public byte[] imgPeripheral;
         public byte[] imgFoveated;
         public DateTime time;
+        public int Frame;
 
-        public ThreadInfo(byte[] foveated, byte[] peripheral, DateTime time)
+        public ThreadInfo(byte[] foveated, byte[] peripheral, DateTime time, int frame)
         {
             this.imgFoveated = foveated;
             this.imgPeripheral = peripheral;
             this.time = time;
+            this.Frame = frame;
         }
     }
 
@@ -147,9 +185,11 @@ public class FoveatedStreamReceiver : MonoBehaviour
         {
             byte[] imgFoveated = ReaderFoveated.ReadBytes(FoveatedStreamSizeCalced);
             byte[] imgPeripheral = ReaderPeripheral.ReadBytes(PeripheralStreamSizeCalced);
-            if (imgFoveated.Length > 0 && imgPeripheral.Length > 0)
+            if (imgFoveated.Length > 0 && imgPeripheral.Length > 0 && !Stopped)
             {
-                ThreadPool.QueueUserWorkItem(StreamThreaded, new ThreadInfo(imgFoveated, imgPeripheral, DateTime.Now));
+                FrameCounter++;
+                ThreadPool.QueueUserWorkItem(StreamThreaded, new ThreadInfo(imgFoveated, imgPeripheral, DateTime.Now, FrameCounter));
+                Thread.Sleep(10);
                 //Thread tmp = new Thread(() => StreamThreaded(imgFoveated, imgPeripheral, DateTime.Now));
                 //tmp.Start();
                 //ListOfThreads.Add(tmp);
@@ -163,14 +203,13 @@ public class FoveatedStreamReceiver : MonoBehaviour
     }
 
 
-    // private void StreamThreaded(byte[] imgFoveated, byte[] imgPeripheral, DateTime time)
     private void StreamThreaded(object state)
     {
         DateTime starttime = DateTime.Now;
         ThreadInfo info = (ThreadInfo)state;
-        UMat frame = CalculateCompleteFrame(info.imgPeripheral, info.imgFoveated);
+        UMat frame = CalculateCompleteFrame(info.imgPeripheral, info.imgFoveated, info.Frame);
         TimeSpan timeneeded = DateTime.Now - starttime;
-        Debug.Log("Time needed: " + timeneeded);
+        Debug.Log("Time needed: " + timeneeded.TotalMilliseconds);
         if (frame != null)
             Queue.Enqueue(() => ByteToMat(frame, info.time));
     }
@@ -200,7 +239,6 @@ public class FoveatedStreamReceiver : MonoBehaviour
     {
         if (img != null && !img.IsEmpty && frameTime > LatestFrameTime)
         {
-            Debug.Log("Test");
             LatestFrameTime = frameTime;
             Texture2D tex = new Texture2D(TotalSize.Width, TotalSize.Height, TextureFormat.RGB24, false);
             tex.LoadRawTextureData(img.Bytes);
@@ -265,7 +303,7 @@ public class FoveatedStreamReceiver : MonoBehaviour
         return coords;
     }
 
-    private UMat CalculateCompleteFrame(byte[] peripheral, byte[] foveated)
+    private UMat CalculateCompleteFrame(byte[] peripheral, byte[] foveated, int frame)
     {
         Bgr color = new Bgr();
         Image<Bgr, byte> peripheralImage = new Image<Bgr, byte>(PeripheralStreamSize.Width, PeripheralStreamSize.Height, color)
@@ -274,7 +312,6 @@ public class FoveatedStreamReceiver : MonoBehaviour
         };
         UMat peripheralArea = peripheralImage.ToUMat();
 
-        CvInvoke.Resize(peripheralArea, peripheralArea, TotalSize);
 
 
         Image<Bgr, byte> foveatedImage = new Image<Bgr, byte>(FoveatedStreamSize.Width, FoveatedStreamSize.Height, color)
@@ -283,25 +320,41 @@ public class FoveatedStreamReceiver : MonoBehaviour
         };
         UMat foveatedArea = foveatedImage.ToUMat();
 
-        UMat peripheralAreaGrey = new UMat(TotalSize, DepthType.Cv8S, 0);
-        CvInvoke.CvtColor(peripheralArea, peripheralAreaGrey, ColorConversion.Bgr2Gray);
-        UMat peripheralAreaGreyThresholded = new UMat(TotalSize, DepthType.Cv8S, 0);
-        CvInvoke.Threshold(peripheralAreaGrey, peripheralAreaGreyThresholded, 10, 255, ThresholdType.Binary);
-        CircleF[] circles = CvInvoke.HoughCircles(peripheralAreaGreyThresholded, HoughModes.Standard, 1, 1000, 300, 10, BoundaryDetectionCircle.Width, BoundaryDetectionCircle.Height);
 
-        if (circles.Length > 1)
-        {
-            string text = "Too many circles detected \nDetected circles:";
-            for (int i = 0; i < circles.Length; i++)
-                text += string.Format("\n center: {0}, radius: {1}", circles[i].Center, circles[i].Radius);
+        //UMat peripheralSmall = new UMat(new Size(320, 180), DepthType.Cv8S, 0);
+        //CvInvoke.Resize(peripheralArea, peripheralSmall, new Size(320, 180));
+        //UMat peripheralAreaGrey = new UMat(new Size(320, 180), DepthType.Cv8S, 0);
+        //CvInvoke.CvtColor(peripheralSmall, peripheralAreaGrey, ColorConversion.Bgr2Gray);
+        //UMat peripheralAreaGreyThresholded = new UMat(new Size(320, 180), DepthType.Cv8S, 0);
+        //CvInvoke.Threshold(peripheralAreaGrey, peripheralAreaGreyThresholded, 10, 255, ThresholdType.Binary);
+        //CircleF[] circles = CvInvoke.HoughCircles(peripheralAreaGreyThresholded, HoughModes.Gradient, 1, 1000, 300, 10, 14, 18);
 
-            Debug.LogError(text);
-        }
-        else if (circles.Length == 0)
-            return null;
+        //if (circles.Length > 1)
+        //{
+        //    string text = "Too many circles detected /nDetected circles:";
+        //    for (int i = 0; i < circles.Length; i++)
+        //        text += string.Format("/n center: {0}, radius: {1}", circles[i].Center, circles[i].Radius);
 
-        Point center = new Point((int)circles[0].Center.X, (int)circles[0].Center.Y);
+        //    Debug.LogError(text);
+        //}
+        //else if (circles.Length == 0)
+        //    return null;
+
+        //Point center = new Point((int)(circles[0].Center.X / 0.125), (int)(circles[0].Center.Y / 0.125));
+
+        Point center = new Point(1280, 720);
         Point correctedCenter = GetCoordsOutOfBorder(center);
+
+        CvInvoke.Resize(peripheralArea, peripheralArea, TotalSize);
+
+        //MCvScalar scalar = new MCvScalar(0, 128, 255);
+        //CvInvoke.Rectangle(peripheralArea, new Rectangle(center.X - 5, center.Y - 5, 10, 10), scalar, 1, LineType.Filled);
+
+        //ReceivedFrameGaze.TryGetValue(frame, out Point receivedCoords);
+
+
+
+        /// Debug.Log("Calculated center: " + center + " received center for " + frame + ": " + receivedCoords);
 
         UMat result = CalculateMaskedCircle(foveatedArea, correctedCenter, out UMat peripheralMask);
         CvInvoke.BitwiseNot(peripheralMask, peripheralMask);
