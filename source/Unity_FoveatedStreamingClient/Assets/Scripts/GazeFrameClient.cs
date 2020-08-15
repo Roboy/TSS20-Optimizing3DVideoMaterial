@@ -6,21 +6,23 @@ using System;
 using System.Text;
 using System.Net;
 using System.Drawing;
-
+using System.Diagnostics;
+using System.Globalization;
 
 public class GazeFrameClient : MonoBehaviour
 {
     public delegate void GazeFrameClientEvent(GazeFrameCoordinates gfc);
     public event GazeFrameClientEvent ReceivedGazeFrameEvent;
 
+    public string IP = "127.0.0.1";
     public int Port = 8889;
     UdpClient Client;
     bool Stopped = false;
     // Start is called before the first frame update
     void Start()
     {
-        IPEndPoint e = new IPEndPoint(IPAddress.Parse("127.0.0.1"), Port);
-        Client = new UdpClient(e);
+        IPEndPoint e = new IPEndPoint(IPAddress.Parse(IP), Port);
+        Client = new UdpClient(8889);
         Client.BeginReceive(ReceivedGazeFrame, Client);
     }
 
@@ -33,6 +35,7 @@ public class GazeFrameClient : MonoBehaviour
         string result = Encoding.ASCII.GetString(msg);
         GazeFrameCoordinates framecoordinates = JsonUtility.FromJson<GazeFrameCoordinates>(result);
         framecoordinates.ServerTime = DateTime.Parse(framecoordinates.Time);
+        framecoordinates.LatencyNetwork = (DateTime.Now - framecoordinates.ServerTime);
         ReceivedGazeFrameEvent.Invoke(framecoordinates);
     }
 
@@ -47,18 +50,21 @@ public class GazeFrameClient : MonoBehaviour
         public int X;
         public int Y;
         public int Frame;
+        public double LatencyServer;
         public string Time;
+        public TimeSpan LatencyNetwork;
         public DateTime ServerTime;
 
-        public GazeFrameCoordinates(int x, int y, int frame, string time)
+        public GazeFrameCoordinates(int x, int y, int frame, float latency, string time)
         {
             X = x;
             Y = y;
             Frame = frame;
             Time = time;
+            LatencyServer = latency;
         }
 
-        public GazeFrameCoordinates(Vector2 pos, int frame, string time) : this((int)pos.x, (int)pos.y, frame, time)
+        public GazeFrameCoordinates(Vector2 pos, int frame, float latency, string time) : this((int)pos.x, (int)pos.y, frame, latency, time)
         { }
     }
 }

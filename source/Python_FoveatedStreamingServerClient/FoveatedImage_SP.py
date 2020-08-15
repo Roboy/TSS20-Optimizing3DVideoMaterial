@@ -78,8 +78,9 @@ class FoveatedImage_SP:
         corrected_coords = self.get_coords_out_of_border(coords)
         foveated, mask = self.calculate_masked_circle(image, corrected_coords, self.radius)
         foveated_cropped = self.get_cropped_foveated(corrected_coords, foveated)
-        peripheral = self.get_masked_peripheral(image, cv2.bitwise_not(mask))
-        return foveated_cropped, peripheral
+        # peripheral = self.get_masked_peripheral(image, cv2.bitwise_not(mask))
+        peripheral = cv2.resize(image, self.size_peripheral)
+        return foveated_cropped, peripheral, corrected_coords
 
 
 if __name__ == '__main__':

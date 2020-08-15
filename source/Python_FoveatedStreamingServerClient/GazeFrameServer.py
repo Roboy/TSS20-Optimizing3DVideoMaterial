@@ -15,11 +15,12 @@ class GazeFrameServer:
     def get_current_time(self):
         return datetime.now().isoformat()
 
-    def send_gaze(self, x: int, y: int, frame: int):
+    def send_gaze(self, x: int, y: int, frame: int, latency_server: float):
         coords = {
             "X": x,
             "Y": y,
             "Frame": frame,
+            "LatencyServer": round(latency_server, 4),
             "Time": self.get_current_time()
         }
         coords = json.dumps(coords)

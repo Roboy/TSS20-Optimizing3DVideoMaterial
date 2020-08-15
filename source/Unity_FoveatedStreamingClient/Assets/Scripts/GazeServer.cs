@@ -49,7 +49,7 @@ public class GazeServer : MonoBehaviour
     }
 
     [Serializable]
-    public class GazeCoordinates
+    public struct GazeCoordinates
     {
         public int X;
         public int Y;
