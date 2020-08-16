@@ -24,5 +24,5 @@ class GazeFrameServer:
             "Time": self.get_current_time()
         }
         coords = json.dumps(coords)
-        print('sending: ', coords)
+        # print('sending: ', coords)
         self.sock.sendto(bytes(coords, "ASCII"), (self.UDP_IP, self.UDP_PORT))

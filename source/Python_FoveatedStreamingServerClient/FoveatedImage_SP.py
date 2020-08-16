@@ -50,7 +50,7 @@ class FoveatedImage_SP:
         if x_coord < self.radius:
             x_coord = self.radius + 1
         elif x_coord > self.size[0] - self.radius:
-            x_coord = self.size[0] - 2 * self.radius - 1
+            x_coord = self.size[0] - self.radius - 1
 
         if y_coord < self.radius:
             y_coord = self.radius + 1

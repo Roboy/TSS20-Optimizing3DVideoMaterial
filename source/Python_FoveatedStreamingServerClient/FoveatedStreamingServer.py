@@ -48,7 +48,7 @@ class FoveatedStreamingServer:
     def new_gaze(self):
         self.ix = self.client.msg['X']
         self.iy = self.client.msg['Y']
-        print('received: ', self.client.msg)
+        # print('received: ', self.client.msg)
 
         if not self.initialzed:
             # print("Resetting Framecount to 0")
@@ -65,20 +65,15 @@ class FoveatedStreamingServer:
                    '-vcodec', 'rawvideo',
                    '-s', dimension,
                    '-pix_fmt', 'bgr24',
-                   # '-r', '10',
                    '-i', '-',
                    '-an',
                    '-vcodec', 'hevc_amf',
                    '-maxrate', speed_limit,
                    '-bufsize', buf_size,
-                   # '-preset', 'slow',
-                   '-preset', 'ultrafast',
-                   '-tune', 'zerolatency',
+                   #'-preset', 'ultrafast',
+                   #'-tune', 'zerolatency',
                    '-pix_fmt', 'nv12',
-                   '-ss', '00:00:00',
-                   # '-r', '59',
-                   '-progress', 'url',
-                   '-vsync', 'passthrough',
+                   #'-vsync', 'passthrough',
                    '-sdp_file', sdp_file_name,
                    '-f', streaming_format, output_adress]
 
@@ -178,10 +173,10 @@ class FoveatedStreamingServer:
         dim_peripheral = '{}x{}'.format(int(self.size_peripheral[0]), int(self.size_peripheral[1]))
         sdp_foveated = self.sdp_directory + "video_00_00_00_foveated.sdp"
         sdp_peripheral = self.sdp_directory + "video_00_00_00_peripheral.sdp"
-        proc_foveated = self.initialize_ffmpeg('rtp', addr_foveated, dim_foveated, sdp_foveated, '99M', '0',
+        proc_foveated = self.initialize_ffmpeg('rtp', addr_foveated, dim_foveated, sdp_foveated, '99M', '99M',
                                                "Foveated Stream")
-        proc_peripheral = self.initialize_ffmpeg('rtp', addr_peripheral, dim_peripheral, sdp_peripheral, '1M',
-                                                 '0', "Peripheral Stream")
+        proc_peripheral = self.initialize_ffmpeg('rtp', addr_peripheral, dim_peripheral, sdp_peripheral, '1B',
+                                                 '1B', "Peripheral Stream")
         self.initialize_cv2()
 
         read_error_peripheral = threading.Thread(target=self.read_error, args=(proc_peripheral, "Peripheral"))
@@ -225,5 +220,5 @@ class FoveatedStreamingServer:
 
 if __name__ == '__main__':
     server = FoveatedStreamingServer("Examples/SetOfVideos/Video_1.mp4", "VideoSettings/", size=(1920, 1080, 3),
-                                     size_peripheral=(480, 270), radius_foveated=128, show_window=False)
+                                     size_peripheral=(480, 270), radius_foveated=128, show_window=True)
     server.stream_loops("rtp://127.0.0.1:5004", "rtp://127.0.0.1:6004", 10)

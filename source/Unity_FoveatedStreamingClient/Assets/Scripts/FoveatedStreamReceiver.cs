@@ -153,6 +153,7 @@ public class FoveatedStreamReceiver : MonoBehaviour
         commandLineArgs += " -i " + sdpfile;
         commandLineArgs += " -vcodec rawvideo";
         commandLineArgs += " -pix_fmt bgr24";
+
         //commandLineArgs += " -debug_ts";
         //commandLineArgs += " -fdebug ts";
         //commandLineArgs += " -loglevel repeat+level+info";
@@ -169,8 +170,6 @@ public class FoveatedStreamReceiver : MonoBehaviour
         };
         return Process.Start(info);
     }
-
-
 
 
     public void Stream()
@@ -199,10 +198,6 @@ public class FoveatedStreamReceiver : MonoBehaviour
                 //else
                 //    TestFrame--;
                 Task.Factory.StartNew(() => StreamThreaded(new ThreadInfo(imgFoveated, imgPeripheral, FrameCounter, counter)));
-                //ThreadPool.QueueUserWorkItem(StreamThreaded, new ThreadInfo(imgFoveated, imgPeripheral, FrameCounter, counter));
-                //Thread tmp = new Thread(new ParameterizedThreadStart(StreamThreaded));
-                //tmp.Start(new ThreadInfo(imgFoveated, imgPeripheral, FrameCounter, counter));
-                //ListOfThreads.Add(tmp);
             }
             else
             {
@@ -213,10 +208,9 @@ public class FoveatedStreamReceiver : MonoBehaviour
     }
 
 
-    //private void StreamThreaded(object state)
+
     private void StreamThreaded(ThreadInfo info)
     {
-        //ThreadInfo info = (ThreadInfo)state;
         UMat frame = CalculateCompleteFrame(info.imgPeripheral, info.imgFoveated, info.Frame);
         if (frame != null && !Stopped && info.Frame > CurrentFrameCount)
             Queue.Enqueue(() => ByteToMat(frame, info.Frame, info));
@@ -238,11 +232,13 @@ public class FoveatedStreamReceiver : MonoBehaviour
         StreamThread.Join();
     }
 
+    int counter = 0;
     /// <summary>
     /// Will be called in main render thread, therefore check here if frame time is later than the frame before
     /// </summary>
     /// <param name="img"></param>
     /// <param name="frameTime"></param>
+    ///
     private void ByteToMat(UMat img, int frame, ThreadInfo info)
     {
         if (img != null && !img.IsEmpty && frame > CurrentFrameCount)
@@ -260,17 +256,19 @@ public class FoveatedStreamReceiver : MonoBehaviour
 
         }
         info.Performance.TotalLatencyClient.Stop();
-        double totalLatencyServer = Math.Round((DateTime.Now - info.Performance.FromServerToImage).TotalMilliseconds, 4);
-        double totalLatency = info.Performance.TotalLatencyClient.ElapsedMilliseconds + info.Performance.NetworkLatency + info.Performance.ServerCalculationLatency;
-        string text = string.Format("Server to client latency: {0}ms \nTotalClientLatency: {1}ms \nNetworklatency: {2}ms \nServercalculationlatency: {3}ms \nTotallatency calculated: {4}ms", totalLatencyServer, info.Performance.TotalLatencyClient.ElapsedMilliseconds, info.Performance.NetworkLatency, info.Performance.ServerCalculationLatency, totalLatency);
+        double totalLatencyServer = Math.Round((DateTime.Now - info.Performance.FromServerToImage).TotalMilliseconds, 0);
+        double totalLatency = Math.Round(info.Performance.TotalLatencyClient.ElapsedMilliseconds + info.Performance.NetworkLatency + info.Performance.ServerCalculationLatency);
+        if (totalLatencyServer > MaxLatency && counter > 50)
+            MaxLatency = totalLatencyServer;
+        else if (totalLatencyServer < MinLatency)
+            MinLatency = totalLatencyServer;
+        counter++;
+        string text = string.Format("Server to client latency: {0}ms \nTotalClientLatency: {1}ms \nNetworklatency: {2}ms \nServercalculationlatency: {3}ms \nTotallatency calculated: {4}ms \nMinLatency: {5}ms MaxLatency: {6}ms", totalLatencyServer.ToString("0000"), info.Performance.TotalLatencyClient.ElapsedMilliseconds.ToString("0000"), Math.Round(info.Performance.NetworkLatency, 0).ToString("0000"), Math.Round(info.Performance.ServerCalculationLatency).ToString("0000"), totalLatency.ToString("0000"), Math.Round(MinLatency).ToString("0000"), Math.Round(MaxLatency).ToString("0000"));
         LatencyText.text = text;
         text += string.Format("\nServertime: {0}, received Time: {2}, Time now: {1}", info.Performance.FromServerToImage.ToLongTimeString(), DateTime.Now.ToLongTimeString(), info.Performance.ServerLatencyString);
         Debug.Log(text);
         info = null;
-        if (totalLatencyServer > MaxLatency)
-            MaxLatency = totalLatencyServer;
-        else if (totalLatencyServer < MinLatency)
-            MinLatency = totalLatencyServer;
+
     }
 
     #region opencv
