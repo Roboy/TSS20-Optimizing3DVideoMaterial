@@ -19,12 +19,20 @@ public class GazeServer : MonoBehaviour
         Server = new UdpClient();
     }
 
-
+    /// <summary>
+    /// Helper method to extract a gaze position as a Vector2
+    /// </summary>
+    /// <param name="position">Current gaze</param>
     public void SendGaze(Vector2 position)
     {
         SendGaze(position.x, position.y);
     }
 
+    /// <summary>
+    /// Send gaze as a json package to the specified ip adress of the server
+    /// </summary>
+    /// <param name="x">X-coordinate of the gaze</param>
+    /// <param name="y">Y-coordinate of the gaze</param>
     public void SendGaze(float x, float y)
     {
         if (!Stopped)
@@ -48,6 +56,9 @@ public class GazeServer : MonoBehaviour
         Stopped = true;
     }
 
+    /// <summary>
+    /// Contains gaze coordinates which are send to the server.
+    /// </summary>
     [Serializable]
     public struct GazeCoordinates
     {

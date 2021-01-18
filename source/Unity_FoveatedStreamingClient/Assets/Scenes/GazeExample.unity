@@ -579,16 +579,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd3eba809e6d15647981ef1a9d868ef1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  TestFrame: 1
-  MaxLatency: -Infinity
-  MinLatency: Infinity
+  FoveatedSDPFile: video_00_00_00_foveated.sdp
+  PeripheralSDPFile: video_00_00_00_peripheral.sdp
   TextPrinter: {fileID: 1804393221}
   LoadingText: {fileID: 1646045495}
   LatencyText: {fileID: 861962876}
   VideoPlane: {fileID: 1265076054}
-  Client: {fileID: 505598509}
+  ShowReceivedGaze: 0
+  ShowCurrentGaze: 0
   Radius: 128
   DisplayRadius: 125
+  Client: {fileID: 505598509}
+  RecordTimings: 1
+  latestFrame: 0
 --- !u!1 &1206232125
 GameObject:
   m_ObjectHideFlags: 0
@@ -709,8 +712,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1265076051}
   m_LocalRotation: {x: 0, y: -0.70710677, z: 0.70710677, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 650.0083}
-  m_LocalScale: {x: 64, y: 1, z: 36}
+  m_LocalPosition: {x: 0, y: 0, z: 650}
+  m_LocalScale: {x: 64, y: 1, z: 32}
   m_Children: []
   m_Father: {fileID: 1673188454}
   m_RootOrder: 0
@@ -1265,10 +1268,11 @@ MonoBehaviour:
   Pointer: {fileID: 1206232125}
   Server: {fileID: 505598508}
   PlaneScaling: 30
-  PlaneScale: {x: 64, y: 1, z: 36}
+  PlaneScale: {x: 64, y: 1, z: 32}
   Text: {fileID: 1804393221}
   LengthOfRay: 100
   GazeRayRenderer: {fileID: 916101236}
+  ShowCurrentGaze: 1
 --- !u!222 &1809498726
 CanvasRenderer:
   m_ObjectHideFlags: 0

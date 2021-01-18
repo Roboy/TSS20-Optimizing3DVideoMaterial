@@ -26,6 +26,10 @@ public class GazeFrameClient : MonoBehaviour
         Client.BeginReceive(ReceivedGazeFrame, Client);
     }
 
+    /// <summary>
+    /// Callback of a received json package from server. Deserializes the package and invokes a listener on an other script.
+    /// </summary>
+    /// <param name="ar">Standard callback parameter</param>
     private void ReceivedGazeFrame(IAsyncResult ar)
     {
         IPEndPoint endPoint = new IPEndPoint(IPAddress.Any, Port);
@@ -44,6 +48,9 @@ public class GazeFrameClient : MonoBehaviour
         Stopped = true;
     }
 
+    /// <summary>
+    /// Contains information about gaze coordinates connected to a frame. Additionally timestamps for measuring the latency.
+    /// </summary>
     [Serializable]
     public class GazeFrameCoordinates
     {
