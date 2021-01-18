@@ -20,14 +20,23 @@ with Unitys' own ML system named Barracuda. This package includes a single image
 Besides specific package requirements, being included in the specific directory as requirements.txt or package.json
 Three programs are essential to use this package:
 
-HTC VIVE Eye Tracking SDK (SRanipal): https://developer.vive.com/resources/vive-sense/sdk/vive-eye-tracking-sdk-sranipal/
+# HTC VIVE Eye Tracking SDK (SRanipal): 
+https://developer.vive.com/resources/vive-sense/sdk/vive-eye-tracking-sdk-sranipal/
+
 used version: 1.3
+
 remarks: the sdk is stated automatically when the HMD is started, a small robot with yellow eyes appear in the taskbar when active
 
-FFmpeg: https://ffmpeg.org/download.html
+# FFmpeg: 
+https://ffmpeg.org/download.html
+
 used version: 4.3.1 
+
 remarks: be sure it is accessible via command line!
 
-Unity3D: https://unity.com/de
+# Unity3D:
+https://unity.com/de
+
 used version: 19.4
+
 remakarks: upgrading to 2020.x shouldn't be a problem, but the VR integration changed a lot!
