@@ -7,6 +7,9 @@ from EventHook import EventHook
 
 
 class GazeClient:
+    """
+    Receive gaze of the client
+    """
 
     def __init__(self, ip: str = "127.0.0.1", port: int = 8888):
         self.UDP_IP: str = ip

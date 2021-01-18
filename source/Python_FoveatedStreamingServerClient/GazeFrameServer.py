@@ -5,7 +5,9 @@ from datetime import datetime
 
 
 class GazeFrameServer:
-
+    """
+    Sending gaze connected to a frame number and a timestamp to the server
+    """
     def __init__(self, ip: str = "127.0.0.1", port: int = 8889):
         self.UDP_IP: str = ip
         self.UDP_PORT: int = port
@@ -24,5 +26,5 @@ class GazeFrameServer:
             "Time": self.get_current_time()
         }
         coords = json.dumps(coords)
-        # print('sending: ', coords)
+        print('sending: ', coords)
         self.sock.sendto(bytes(coords, "ASCII"), (self.UDP_IP, self.UDP_PORT))

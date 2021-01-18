@@ -7,4 +7,3 @@ a=tool:libavformat 58.47.100
 m=video 6004 RTP/AVP 96
 b=AS:2000
 a=rtpmap:96 H265/90000
-a=fmtp:96 sprop-vps=QAEMAf//AWAAAAMAsAAAAwAAAwC6LAk=; sprop-sps=QgEBAWAAAAMAsAAAAwAAAwC6oAQCARHCNcuSQpWS4/8AAQABQAgAAAMACAAAAwDOIA==; sprop-pps=RAHg88BMkA==
