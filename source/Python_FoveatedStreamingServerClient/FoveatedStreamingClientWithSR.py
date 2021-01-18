@@ -222,7 +222,7 @@ class FoveatedStreamingClient:
     def pixel_shuffle(self, scale):
         """
         Method for the RoboyGAN
-        :param scale: scale on how the image will be rescaled
+        :param scale: scale on how the image will be rescaled i.e increased by an factor
         :return: scaled image
         """
         return lambda x: tf.nn.depth_to_space(x, scale)
