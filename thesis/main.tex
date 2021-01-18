@@ -1,0 +1,57 @@
+\RequirePackage[l2tabu,orthodox]{nag}
+
+% TODO: decide if one-sided/two-sided
+%\documentclass[headsepline,footsepline,footinclude=false,fontsize=11pt,paper=a4,listof=totoc,bibliography=totoc,BCOR=12mm,DIV=12]{scrbook} % two-sided
+\documentclass[headsepline,footsepline,footinclude=false,oneside,fontsize=11pt,paper=a4,listof=totoc,bibliography=totoc]{scrbook} % one-sided
+
+% TODO: change citation style in settings
+\input{settings}
+
+% TODO: change thesis information
+\newcommand*{\getUniversity}{Technische Universität München}
+\newcommand*{\getFaculty}{Department of Informatics}
+\newcommand*{\getTitle}{Optimizing Transmission of 3D Video Data for Limited Bandwidth and Latency through Foveated Rendering and Superresolution}
+\newcommand*{\getTitleGer}{Übertragungsoptimierung von 3D Video Material innerhalb eines Bandbreiten und Latenz limitierten Netzwerkes mit Hilfe von Foveated Rendering und Super-Resolution}
+\newcommand*{\getAuthor}{Philip Hagemann}
+\newcommand*{\getDoctype}{Master's Thesis in Robotics, Cognition, Intelligence}
+\newcommand*{\getSupervisor}{Prof. Dr.-Ing. Alois Knoll}
+\newcommand*{\getAdvisor}{Rafael Hostettler, Alona Kharchenko}
+\newcommand*{\getSubmissionDate}{15. November 2020}
+\newcommand*{\getSubmissionLocation}{Munich}
+
+\begin{document}
+
+\pagenumbering{alph}
+\input{pages/cover}
+\frontmatter{}
+
+\input{pages/title}
+\input{pages/disclaimer}
+\input{pages/acknowledgments}
+\input{pages/abstract}
+\microtypesetup{protrusion=false}
+\tableofcontents{}
+\microtypesetup{protrusion=true}
+
+
+\mainmatter{}
+
+\input{chapters/01_Introduction}
+\input{chapters/02_Background}
+\input{chapters/03_Environment}
+\input{chapters/04_Methods}
+\input{chapters/05_Evaluation}
+\input{chapters/06_Conclusion}
+\input{chapters/07_Outlook}
+
+
+
+\appendix{}
+\input{pages/glossary}
+\microtypesetup{protrusion=false}
+\listoffigures{}
+\listoftables{}
+\microtypesetup{protrusion=true}
+\printglossary[type=\acronymtype,nonumberlist]
+\printbibliography{}
+\end{document}
